@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then
-  echo "usage: $0 <sg2044|k1> <q4_k_gemv|q4_k_gemv_groups4|q8_0_quantize|q8_1_quantize|q8_K_quantize|gemv_f32|gemm_f32|ime_i8_contract> <repetitions>" >&2
+  echo "usage: $0 <sg2044|k1|v100> <q4_k_gemv|q4_k_gemv_groups4|q8_0_quantize|q8_1_quantize|q8_K_quantize|gemv_f32|gemm_f32|ime_i8_contract> <repetitions>" >&2
   exit 2
 fi
 
@@ -34,6 +34,17 @@ case "${target}" in
     extra_cflags=-fno-integrated-as
     link_path=/usr/lib/riscv64-linux-gnu
     runtime_target_define=-DWEFT_TARGET_K1=1
+    ;;
+  v100)
+    remote_host=rvv-v100
+    remote_cc=/home/zhy001/llvm-toolset-18/opt/openEuler/llvm-toolset-18/root/usr/bin/clang-18
+    remote_cxx=/home/zhy001/llvm-toolset-18/opt/openEuler/llvm-toolset-18/root/usr/bin/clang++-18
+    remote_cpu=3
+    march=rv64gcv_zfh_zfhmin_zvfh_zvfhmin_zfa_zba_zbb_zbc_zbs_zicbom_zicboz_zicbop_zicond_zawrs_zihintpause
+    vlen=256
+    extra_cflags=-fno-integrated-as
+    link_path=/home/zhy001/llvm-toolset-18/opt/openEuler/llvm-toolset-18/root/usr/lib64
+    runtime_target_define=-DWEFT_TARGET_V100=1
     ;;
   *)
     echo "unsupported Weft target: ${target}" >&2
@@ -191,6 +202,11 @@ tar -C "${local_root}" -cf - kernel.c runtime.cpp |
     cd \"\${remote_root}\"
     cc=${cc_argument}
     cxx=${cxx_argument}
+    compiler_lib_dir=\$(cd -- \"\$(dirname -- \"\${cc}\")/../lib64\" 2>/dev/null && pwd -P || true)
+    if [ -d \"\${compiler_lib_dir}\" ]; then
+      export LD_LIBRARY_PATH=\"\${compiler_lib_dir}:\${LD_LIBRARY_PATH:-}\"
+      export LIBRARY_PATH=\"\${compiler_lib_dir}:\${LIBRARY_PATH:-}\"
+    fi
     cpu=${cpu_argument}
     march=${march_argument}
     extra_cflags=${extra_cflags_argument}

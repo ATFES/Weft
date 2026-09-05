@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then
-  echo "usage: $0 <sg2044|k1> <kernel|format:phase> <repetitions>" >&2
+  echo "usage: $0 <sg2044|k1|v100> <kernel|format:phase> <repetitions>" >&2
   exit 2
 fi
 

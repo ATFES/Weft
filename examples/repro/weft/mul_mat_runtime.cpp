@@ -37,11 +37,24 @@ bool within_tolerance(float actual, float expected, double &max_absolute,
          kAbsoluteTolerance + kRelativeTolerance * std::fabs(expected);
 }
 
-#if defined(WEFT_TARGET_K1)
+#if defined(WEFT_TARGET_V100)
+constexpr const char *kTarget = "SpacemiT V100";
+#elif defined(WEFT_TARGET_K1)
 constexpr const char *kTarget = "K1/X60";
 #else
 constexpr const char *kTarget = "SG2044";
 #endif
+
+static unsigned runtime_vlen_bits() {
+#if defined(__riscv)
+  unsigned long vlen_bytes = 0;
+  asm volatile("csrr %0, vlenb" : "=r"(vlen_bytes));
+  return static_cast<unsigned>(vlen_bytes * 8UL);
+#else
+  return 0;
+#endif
+}
+
 constexpr std::size_t kN = 4096;
 constexpr std::size_t kK = 4096;
 constexpr std::size_t kFlushBytes = 64U * 1024U * 1024U;
@@ -834,8 +847,8 @@ int main(int argc, char **argv) {
   }
   const double medianUs = median(samples);
   const double operations = 2.0 * static_cast<double>(runtimeM) * kN * kK;
-  std::printf("target=%s\nphase=%s\nM=%zu\nN=%zu\nK=%zu\n", kTarget,
-              phase, runtimeM, kN, kK);
+  std::printf("target=%s\nvlen_bits=%u\nphase=%s\nM=%zu\nN=%zu\nK=%zu\n",
+              kTarget, runtime_vlen_bits(), phase, runtimeM, kN, kK);
 #if WEFT_MUL_MAT_FORMAT == 0
   std::printf("input_policy=dense-fixed-values\n");
 #else
