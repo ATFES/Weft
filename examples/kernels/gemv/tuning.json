@@ -5,7 +5,9 @@
   "search_budget": 256,
   "bindings": {
     "kernel:k1 q4_k_gemv": {"entry":"q4_k.py","symbol":"q4_k_q8_k_gemv","source":{},"physical":{}},
+    "kernel:v100 q4_k_gemv": {"entry":"q4_k.py","symbol":"q4_k_q8_k_gemv","source":{},"physical":{}},
     "kernel:k1 q4_k_gemv_groups4": {"entry":"q4_k_groups4.py","symbol":"q4_k_q8_k_gemv_groups4","source":{},"physical":{}},
+    "kernel:v100 q4_k_gemv_groups4": {"entry":"q4_k_groups4.py","symbol":"q4_k_q8_k_gemv_groups4","source":{},"physical":{}},
     "kernel:sg2044 q4_k_gemv": {"entry":"q4_k.py","symbol":"q4_k_q8_k_gemv","source":{},"physical":{}},
     "kernel:sg2044 q4_k_gemv_groups4": {"entry":"q4_k_groups4.py","symbol":"q4_k_q8_k_gemv_groups4","source":{},"physical":{"lmul_eighths":32,"unroll":2,"pipeline_depth":1}}
   }

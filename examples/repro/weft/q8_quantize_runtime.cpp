@@ -25,11 +25,23 @@
 extern "C" void WEFT_Q8_ENTRY(const float *input, std::uint8_t *output,
                               std::size_t columns);
 
-#if defined(WEFT_TARGET_K1)
+#if defined(WEFT_TARGET_V100)
+#define WEFT_TARGET_NAME "SpacemiT V100"
+#elif defined(WEFT_TARGET_K1)
 #define WEFT_TARGET_NAME "K1/X60"
 #else
 #define WEFT_TARGET_NAME "SG2044"
 #endif
+
+static unsigned runtime_vlen_bits() {
+#if defined(__riscv)
+  unsigned long vlen_bytes = 0;
+  asm volatile("csrr %0, vlenb" : "=r"(vlen_bytes));
+  return static_cast<unsigned>(vlen_bytes * 8UL);
+#else
+  return 0;
+#endif
+}
 
 namespace {
 
@@ -191,8 +203,8 @@ int main(int argc, char **argv) {
         std::chrono::duration<double, std::milli>(end - begin).count());
   }
   const double medianMs = median(samples);
-  std::printf("kernel=%s\ntarget=%s\nM=%zu\nK=%zu\n", kKernel,
-              WEFT_TARGET_NAME, kRows, kColumns);
+  std::printf("kernel=%s\ntarget=%s\nvlen_bits=%u\nM=%zu\nK=%zu\n", kKernel,
+              WEFT_TARGET_NAME, runtime_vlen_bits(), kRows, kColumns);
   std::printf("input_policy=fixed-float-mod31\n");
   std::printf("numeric=bit-exact\nrepetitions=%zu\n", repetitions);
   std::printf("cold_median_ms=%.6f\n", medianMs);

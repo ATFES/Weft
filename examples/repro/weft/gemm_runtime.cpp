@@ -11,11 +11,23 @@
 extern "C" void gemm_f32(const float *A, const float *B, float *C,
                           std::size_t M, std::size_t K, std::size_t N);
 
-#if defined(WEFT_TARGET_K1)
+#if defined(WEFT_TARGET_V100)
+#define WEFT_TARGET_NAME "SpacemiT V100"
+#elif defined(WEFT_TARGET_K1)
 #define WEFT_TARGET_NAME "K1/X60"
 #else
 #define WEFT_TARGET_NAME "SG2044"
 #endif
+
+static unsigned runtime_vlen_bits() {
+#if defined(__riscv)
+  unsigned long vlen_bytes = 0;
+  asm volatile("csrr %0, vlenb" : "=r"(vlen_bytes));
+  return static_cast<unsigned>(vlen_bytes * 8UL);
+#else
+  return 0;
+#endif
+}
 
 namespace {
 constexpr std::size_t kK = 4096;
@@ -108,8 +120,8 @@ int main(int argc, char **argv) {
   const double median_us = median(samples);
   const double operations =
       2.0 * static_cast<double>(m) * kK * static_cast<double>(kN);
-  std::printf("kernel=gemm_f32\ntarget=%s\nphase=%s\nM=%zu\nN=%zu\nK=%zu\n",
-              WEFT_TARGET_NAME, phase, m, kN, kK);
+  std::printf("kernel=gemm_f32\ntarget=%s\nvlen_bits=%u\nphase=%s\nM=%zu\nN=%zu\nK=%zu\n",
+              WEFT_TARGET_NAME, runtime_vlen_bits(), phase, m, kN, kK);
   std::printf("input_policy=dense-fixed-values\n");
   std::printf("numeric=within-tolerance\nmax_absolute_error=%.9g\n"
               "max_relative_error=%.9g\nrepetitions=%zu\n",

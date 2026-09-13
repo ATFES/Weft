@@ -88,7 +88,7 @@ def parse_result(output: str) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("target", choices=("sg2044", "k1"))
+    parser.add_argument("target", choices=("sg2044", "k1", "v100"))
     parser.add_argument("kernel")
     parser.add_argument("repetitions", type=int)
     args = parser.parse_args()

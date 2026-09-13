@@ -11,11 +11,23 @@
 extern "C" void gemv_f32(const float *W, const float *X, float *Y,
                           std::size_t M, std::size_t K);
 
-#if defined(WEFT_TARGET_K1)
+#if defined(WEFT_TARGET_V100)
+#define WEFT_TARGET_NAME "SpacemiT V100"
+#elif defined(WEFT_TARGET_K1)
 #define WEFT_TARGET_NAME "K1/X60"
 #else
 #define WEFT_TARGET_NAME "SG2044"
 #endif
+
+static unsigned runtime_vlen_bits() {
+#if defined(__riscv)
+  unsigned long vlen_bytes = 0;
+  asm volatile("csrr %0, vlenb" : "=r"(vlen_bytes));
+  return static_cast<unsigned>(vlen_bytes * 8UL);
+#else
+  return 0;
+#endif
+}
 
 namespace {
 constexpr std::size_t kM = 14336;
@@ -97,8 +109,8 @@ int main(int argc, char **argv) {
   }
   const double median_us = median(samples);
   const double operations = 2.0 * static_cast<double>(kM) * kK;
-  std::printf("kernel=gemv_f32\ntarget=%s\nM=%zu\nK=%zu\n", WEFT_TARGET_NAME,
-              kM, kK);
+  std::printf("kernel=gemv_f32\ntarget=%s\nvlen_bits=%u\nM=%zu\nK=%zu\n",
+              WEFT_TARGET_NAME, runtime_vlen_bits(), kM, kK);
   std::printf("numeric=within-tolerance\nmax_absolute_error=%.9g\n"
               "max_relative_error=%.9g\nrepetitions=%zu\n",
               max_absolute, max_relative, repetitions);
