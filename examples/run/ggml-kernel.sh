@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 4 ]]; then
-  echo "usage: $0 <sg2044|k1> <mul_mat|vec_dot|quantize|dequantize|forward|unfamiliar|ime1> <kernel> <repetitions>" >&2
+  echo "usage: $0 <sg2044|k1|v100> <mul_mat|vec_dot|quantize|dequantize|forward|unfamiliar|ime1> <kernel> <repetitions>" >&2
   exit 2
 fi
 
@@ -23,6 +23,7 @@ case "${target}" in
     remote_extra_cxx_flags='--gcc-toolchain=/opt/tcrv-toolchains/gcc-15.2.0 -B/opt/tcrv-toolchains/binutils-2.46.1/bin -fno-integrated-as'
     remote_link_path=/opt/tcrv-toolchains/gcc-15.2.0/lib
     remote_extra_define=
+    remote_openmp_library=-lgomp
     ;;
   k1)
     remote_host=k1
@@ -34,6 +35,19 @@ case "${target}" in
     remote_extra_cxx_flags=-fno-integrated-as
     remote_link_path=/usr/lib/riscv64-linux-gnu
     remote_extra_define=
+    remote_openmp_library=-lgomp
+    ;;
+  v100)
+    remote_host=rvv-v100
+    remote_source=/home/zhy001/rvv-v100-llama
+    remote_build=/home/zhy001/rvv-v100-llama/build-v100-clang18-gomp
+    remote_cxx=/home/zhy001/llvm-toolset-18/opt/openEuler/llvm-toolset-18/root/usr/bin/clang++-18
+    remote_cpu=3
+    remote_march=rv64gcv_zfh_zfhmin_zvfh_zvfhmin_zfa_zba_zbb_zbc_zbs_zicbom_zicboz_zicbop_zicond_zawrs_zihintpause
+    remote_extra_cxx_flags=-fno-integrated-as
+    remote_link_path=/usr/lib/gcc/riscv64-openEuler-linux/14
+    remote_extra_define=
+    remote_openmp_library=-lgomp
     ;;
   *)
     echo "unsupported GGML target: ${target}" >&2
@@ -106,6 +120,7 @@ printf -v march_argument '%q' "${remote_march}"
 printf -v extra_cxx_flags_argument '%q' "${remote_extra_cxx_flags}"
 printf -v link_path_argument '%q' "${remote_link_path}"
 printf -v extra_define_argument '%q' "${remote_extra_define}"
+printf -v openmp_library_argument '%q' "${remote_openmp_library}"
 
 tar -C "${local_root}" -cf - runtime.cpp |
   ssh "${remote_host}" "
@@ -129,11 +144,17 @@ tar -C "${local_root}" -cf - runtime.cpp |
     source_root=${source_argument}
     build_root=${build_argument}
     cxx=${cxx_argument}
+    compiler_lib_dir=\$(cd -- \"\$(dirname -- \"\${cxx}\")/../lib64\" 2>/dev/null && pwd -P || true)
+    if [ -d \"\${compiler_lib_dir}\" ]; then
+      export LD_LIBRARY_PATH=\"\${compiler_lib_dir}:\${LD_LIBRARY_PATH:-}\"
+      export LIBRARY_PATH=\"\${compiler_lib_dir}:\${LIBRARY_PATH:-}\"
+    fi
     cpu=${cpu_argument}
     march=${march_argument}
     extra_cxx_flags=${extra_cxx_flags_argument}
     link_path=${link_path_argument}
     extra_define=${extra_define_argument}
+    openmp_library=${openmp_library_argument}
 
     \"\${cxx}\" -O3 -std=c++17 -Wall -Wextra -Werror -ffp-contract=fast \
       \${extra_cxx_flags} \${extra_define} \
@@ -146,7 +167,7 @@ tar -C "${local_root}" -cf - runtime.cpp |
       -L"\${link_path}" \
       -Wl,-rpath,\"\${build_root}/bin:\${link_path}\" \
       -Wl,--no-as-needed \
-      -lggml -lggml-cpu -lggml-base -lgomp -lm -ldl -pthread \
+      -lggml -lggml-cpu -lggml-base \${openmp_library} -lm -ldl -pthread \
       -o ggml_kernel_runtime
 
     taskset -c \"\${cpu}\" ./ggml_kernel_runtime ${kernel_argument} ${repetitions_argument}

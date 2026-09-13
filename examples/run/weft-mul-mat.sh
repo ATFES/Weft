@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 4 ]]; then
-  echo "usage: $0 <sg2044|k1> <f32|f16|q1_0|q4_0|q4_1|q5_0|q5_1|q8_0|q2_k|q3_k|q4_k|q4_k_persistent|q4_k_staged|q5_k|q6_k|iq1_s|iq1_m|iq2_s|iq2_s_staged|iq2_xs|iq2_xs_staged|iq2_xxs|iq2_xxs_staged|iq3_s|iq3_xxs|iq4_nl|iq4_xs|tq1_0|tq2_0|mxfp4|nvfp4> <decode|prefill> <repetitions>" >&2
+  echo "usage: $0 <sg2044|k1|v100> <f32|f16|q1_0|q4_0|q4_1|q5_0|q5_1|q8_0|q2_k|q3_k|q4_k|q4_k_persistent|q4_k_staged|q5_k|q6_k|iq1_s|iq1_m|iq2_s|iq2_s_staged|iq2_xs|iq2_xs_staged|iq2_xxs|iq2_xxs_staged|iq3_s|iq3_xxs|iq4_nl|iq4_xs|tq1_0|tq2_0|mxfp4|nvfp4> <decode|prefill> <repetitions>" >&2
   exit 2
 fi
 
@@ -55,6 +55,7 @@ case "${target}" in
     extra_flags='--gcc-toolchain=/opt/tcrv-toolchains/gcc-15.2.0 -B/opt/tcrv-toolchains/binutils-2.46.1/bin -fno-integrated-as'
     link_path=/opt/tcrv-toolchains/gcc-15.2.0/lib
     runtime_target_define=
+    openmp_library=-lgomp
     ;;
   k1)
     remote_host=k1
@@ -68,6 +69,21 @@ case "${target}" in
     extra_flags=-fno-integrated-as
     link_path=/usr/lib/riscv64-linux-gnu
     runtime_target_define=-DWEFT_TARGET_K1=1
+    openmp_library=-lgomp
+    ;;
+  v100)
+    remote_host=rvv-v100
+    remote_source=/home/zhy001/rvv-v100-llama
+    remote_build=/home/zhy001/rvv-v100-llama/build-v100-clang18-gomp
+    remote_cc=/home/zhy001/llvm-toolset-18/opt/openEuler/llvm-toolset-18/root/usr/bin/clang-18
+    remote_cxx=/home/zhy001/llvm-toolset-18/opt/openEuler/llvm-toolset-18/root/usr/bin/clang++-18
+    remote_cpu=3
+    march=rv64gcv_zfh_zfhmin_zvfh_zvfhmin_zfa_zba_zbb_zbc_zbs_zicbom_zicboz_zicbop_zicond_zawrs_zihintpause
+    vlen=256
+    extra_flags="-fno-integrated-as"
+    link_path=/usr/lib/gcc/riscv64-openEuler-linux/14
+    runtime_target_define=-DWEFT_TARGET_V100=1
+    openmp_library=-lgomp
     ;;
   *)
     echo "unsupported Weft target: ${target}" >&2
@@ -161,6 +177,7 @@ printf -v extra_flags_argument '%q' "${extra_flags}"
 printf -v format_argument '%q' "${format_id}"
 printf -v link_path_argument '%q' "${link_path}"
 printf -v runtime_target_define_argument '%q' "${runtime_target_define}"
+printf -v openmp_library_argument '%q' "${openmp_library}"
 printf -v phase_argument '%q' "${phase}"
 printf -v repetitions_argument '%q' "${repetitions}"
 printf -v keep_artifacts_argument '%q' "${WEFT_KEEP_ARTIFACTS:-0}"
@@ -187,12 +204,18 @@ tar -C "${local_root}" -cf - kernel.c runtime.cpp |
     build_root=${build_argument}
     cc=${cc_argument}
     cxx=${cxx_argument}
+    compiler_lib_dir=\$(cd -- \"\$(dirname -- \"\${cc}\")/../lib64\" 2>/dev/null && pwd -P || true)
+    if [ -d \"\${compiler_lib_dir}\" ]; then
+      export LD_LIBRARY_PATH=\"\${compiler_lib_dir}:\${LD_LIBRARY_PATH:-}\"
+      export LIBRARY_PATH=\"\${compiler_lib_dir}:\${LIBRARY_PATH:-}\"
+    fi
     cpu=${cpu_argument}
     march=${march_argument}
     extra_flags=${extra_flags_argument}
     format_id=${format_argument}
     link_path=${link_path_argument}
     runtime_target_define=${runtime_target_define_argument}
+    openmp_library=${openmp_library_argument}
     if [ \"\${keep_artifacts}\" = 1 ]; then
       \"\${cc}\" -O3 -std=c11 -Wall -Wextra -Werror -ffp-contract=fast \
         \${extra_flags} -march=\"\${march}\" -mabi=lp64d -S kernel.c -o kernel.s
@@ -208,7 +231,7 @@ tar -C "${local_root}" -cf - kernel.c runtime.cpp |
       -I\"\${source_root}/ggml/src/ggml-cpu\" runtime.cpp kernel.o \
       -L\"\${build_root}/bin\" -L\"\${link_path}\" \
       -Wl,-rpath,\"\${build_root}/bin:\${link_path}\" \
-      -Wl,--no-as-needed -lggml -lggml-cpu -lggml-base -lgomp -lm -ldl -pthread \
+      -Wl,--no-as-needed -lggml -lggml-cpu -lggml-base \${openmp_library} -lm -ldl -pthread \
       -o runtime
     taskset -c \"\${cpu}\" ./runtime ${phase_argument} ${repetitions_argument}
   "
