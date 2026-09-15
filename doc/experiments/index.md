@@ -67,10 +67,19 @@ production `MUL_MAT`、standalone vec-dot、activation quantize和row dequantize
 
 具体correctness、toolchain、machines、timing与CSV合同见[测量协议](protocol.md)。
 
-原生调用 repro 为 `examples/repro/weft/native_jit.py`，通过公开 JIT API 运行现有 dense 与
-encoded source，并检查同绑定复用和不同绑定专门化。它服务于原生调用/ABI 的数值验收，
-不替代上面的 production 性能 case；GGML 仅在 repro 中生成参考输入/输出，不进入 runtime。
-JIT 编译与加载耗时不混入已有 kernel-only timing；需要测冷启动时必须另行声明计时边界。
+原生调用 repro 有两个入口。`examples/repro/weft/native_jit.py` 是最小 smoke：通过公开
+JIT API 运行现有 dense 与 encoded source，并检查同绑定复用和不同绑定专门化。
+`examples/repro/weft/native_jit_runner.py` 是全量本机 JIT 数值验收套件，入口为
+`examples/run/weft-jit.sh <target> <case|family|all> <repeat>`；测试面以
+`examples/kernels/*/tuning.json` 中声明为该 target 的绑定为唯一权威，未被任何 target
+声明绑定的 kernel 文件按 `no-v100-binding` 审计报告，不做静默跳过。判定分为
+`numeric`（浮点容差）、`bitexact`（量化输出逐位一致）与 `no-v100-binding`；容差沿用
+对应 remote runner runtime 的预先声明值，量化输入与 reference 由 GGML 通过 ctypes 生成
+（iq/tq/mxfp4/nvfp4 查表参数取自 GGML 头文件），GGML 仅在 repro 中生成参考输入/输出，
+不进入 runtime。套件级检查覆盖相同绑定复用、不同绑定专门化与 Buffer ABI 合同。两个入口
+都服务于原生调用/ABI 的数值验收，不替代 production 性能 case；JIT 编译与加载耗时不混入
+已有 kernel-only timing，套件记录的 `compile_ms`/`cold_call_ms`/`warm_median_ms` 是
+独立计时边界。
 
 ## 4. 性能差距的所有权
 
