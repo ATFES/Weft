@@ -4,7 +4,8 @@
 `v100-jit`，commit `d3e98a050`，repeat=10，taskset core 3）；GGML 侧为
 `report/baseline/ggml-riscv-kernel-performance.csv` 的 V100 固定 baseline；正式
 协议比值取自 `report/kernel-performance-comparison.csv`（remote runner，64MiB
-cache eviction，10 次取中位）。
+cache eviction，10 次取中位）。机读逐 case 对照数据见同目录
+`v100-native-jit-vs-ggml-20260915.csv`。
 
 边界声明：JIT 的 `warm_median_ms` 是进程内 warm 计时，无 cache eviction，含
 ctypes 调用开销，**不是** [测量协议](../doc/experiments/protocol.md) 的正式
