@@ -1,5 +1,5 @@
 kernel,target,phase,weft,source,ratio,measurement
-gemm_f32,V100,prefill,5.879030,,,native-jit-warm
+gemm_f32,V100,prefill,5.879030,9.356282,0.628351,native-jit-warm
 gemv_f32,V100,decode,0.788321,,,native-jit-warm
 mul_mat_f32,V100,decode,3.026552,2.861076,1.057837,native-jit-warm
 mul_mat_f32,V100,prefill,5.887269,9.356282,0.629232,native-jit-warm
