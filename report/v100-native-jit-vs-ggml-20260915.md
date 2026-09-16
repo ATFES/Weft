@@ -5,7 +5,11 @@
 `report/baseline/ggml-riscv-kernel-performance.csv` 的 V100 固定 baseline；正式
 协议比值取自 `report/kernel-performance-comparison.csv`（remote runner，64MiB
 cache eviction，10 次取中位）。机读逐 case 对照数据见同目录
-`v100-native-jit-vs-ggml-20260915.csv`。
+`v100-native-jit-vs-ggml-20260915.csv`，其列结构与
+`kernel-performance-comparison.csv` 相同（kernel,target,phase,weft,source,
+ratio,measurement），`measurement` 以 native-jit-warm / native-jit-dispatch-
+bound / compile-fail 标注 JIT 侧口径与状态；weft 为 JIT warm 吞吐，仅整调用
+scope 有值，与正式表的 remote 协议值不可混用。
 
 边界声明：JIT 的 `warm_median_ms` 是进程内 warm 计时，无 cache eviction，含
 ctypes 调用开销，**不是** [测量协议](../doc/experiments/protocol.md) 的正式
